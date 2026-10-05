@@ -7,13 +7,13 @@ name = "jlens"
 version = "0.1.0"
 description = "Companion code for 'Verbalizable Representations Form a Global Workspace in Language Models'"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = "Apache-2.0"
 dependencies = [
-    "torch",
-    "huggingface_hub",
-    "transformers>=5.5",
-    "numpy",
+    "torch==2.14.1",
+    "huggingface_hub==1.33.0",
+    "transformers==5.18.0",
+    "numpy==2.5.3",
 ]
 
 [project.urls]

@@ -8,6 +8,8 @@ dist/
 .ruff_cache/
 .ipynb_checkpoints/
 
+.idea
+
 # jlens outputs
 *.pt
 slice*.html

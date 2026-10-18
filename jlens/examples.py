@@ -48,7 +48,7 @@ def load_wikitext_prompts(n_prompts: int, *, min_chars: int = 600) -> list[str]:
     from datasets import load_dataset
 
     dataset = load_dataset(
-        "Salesforce/wikitext", "wikitext-103-raw-v1", split="train", streaming=True
+        "Salesforce/wikitext", "wikitext-103-raw-v1", split="train", streaming=False
     )
     prompts: list[str] = []
     for record in dataset:

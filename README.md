@@ -1,6 +1,7 @@
 # jlens — Jacobian lens
 
-> **Reference implementation.** Not maintained and not accepting contributions.
+A fork of the reference implementation for the Jacobian lens, modified to test
+the sensitivity of the lens to the fitting corpus. **Currently a work in progress.**
 
 Companion code for [**Verbalizable Representations Form a Global Workspace in
 Language Models**](https://transformer-circuits.pub/2026/workspace/index.html).

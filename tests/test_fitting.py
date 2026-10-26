@@ -1,9 +1,12 @@
 # Copyright 2026 Anthropic PBC
 # SPDX-License-Identifier: Apache-2.0
 
+import weakref
+
 import pytest
 import torch
 
+import jlens.fitting as fitting
 from jlens.fitting import fit, jacobian_for_prompt, valid_position_mask
 from jlens.lens import JacobianLens
 
@@ -49,6 +52,37 @@ def test_jacobian_for_prompt_tiny():
     # Block 3 is h + W_3 h, so J_2 == I + W_3 exactly — pins orientation/indexing.
     expected_J2 = torch.eye(8) + model.layers[3].linear.weight.detach()
     torch.testing.assert_close(jacobians[2], expected_J2, rtol=0, atol=1e-5)
+
+
+def test_jacobian_partial_batch_matches_linear_map():
+    """Check every row/layer against the exact map, including a partial batch."""
+    model = TinyDecoder(n_layers=5, d_model=8)
+    jacobians, _, _ = jacobian_for_prompt(
+        model, "abcdefghij " * 5, source_layers=[3, 0, 2], dim_batch=3
+    )
+    for source, actual in jacobians.items():
+        expected = torch.eye(model.d_model)
+        for block in model.layers[source + 1 :]:
+            expected = (
+                torch.eye(model.d_model) + block.linear.weight.detach()
+            ) @ expected
+        torch.testing.assert_close(actual, expected, rtol=0, atol=1e-5)
+
+
+def test_fit_releases_previous_prompt_matrices(monkeypatch):
+    """Previous prompt matrices must be freed before computing the next graph."""
+    previous = []
+    original = fitting.jacobian_for_prompt
+
+    def tracked_jacobian(*args, **kwargs):
+        assert all(reference() is None for reference in previous)
+        result = original(*args, **kwargs)
+        previous[:] = [weakref.ref(matrix) for matrix in result[0].values()]
+        return result
+
+    monkeypatch.setattr(fitting, "jacobian_for_prompt", tracked_jacobian)
+    fit(TinyDecoder(), ["abcdefghij " * 5] * 2, dim_batch=3)
+    assert all(reference() is None for reference in previous)
 
 
 def test_fit_and_apply_tiny(tmp_path):

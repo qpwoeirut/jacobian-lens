@@ -168,6 +168,12 @@ def jacobian_for_prompt(
         ]  # [dim_batch, seq_len, d_model]
         source_activations = [recorder.activations[layer] for layer in source_layers]
 
+        # Copy reduced rows once per device/backward, rather than synchronizing
+        # the accelerator once per layer.
+        device_groups: dict[torch.device, list[int]] = {}
+        for index, activation in enumerate(source_activations):
+            device_groups.setdefault(activation.device, []).append(index)
+
         valid_positions = position_mask.nonzero(as_tuple=True)[0].to(
             target_activation.device
         )
@@ -190,16 +196,27 @@ def jacobian_for_prompt(
                 grad_outputs=cotangent,
                 retain_graph=(pass_idx < n_passes - 1),
             )
-            for layer, grad in zip(source_layers, grads, strict=True):
-                # grad: [dim_batch, seq_len, d_model] on whatever device this
-                # layer lives on; mean over the valid positions -> dim_batch rows.
-                positions_on_device = valid_positions.to(grad.device, non_blocking=True)
-                rows = (
-                    grad[:n_dims_this_pass, positions_on_device, :].float().mean(dim=1)
-                )
-                jacobians[layer][dim_start : dim_start + n_dims_this_pass, :] = (
-                    rows.cpu()
-                )
+            for device, indices in device_groups.items():
+                # Valid positions are contiguous. A slice avoids materializing
+                # an indexed copy of the full [batch, positions, width] gradient.
+                rows = [
+                    grads[index][:n_dims_this_pass, skip_first : seq_len - 1, :]
+                    .float()
+                    .mean(dim=1)
+                    for index in indices
+                ]
+                if device.type != "cpu":
+                    packed_rows = torch.stack(rows).cpu()
+                    del rows
+                    rows = packed_rows.unbind(0)
+                for index, layer_rows in zip(indices, rows, strict=True):
+                    layer = source_layers[index]
+                    jacobians[layer][dim_start : dim_start + n_dims_this_pass, :] = (
+                        layer_rows
+                    )
+                del rows
+                if device.type != "cpu":
+                    del packed_rows
             del grads
             if pass_idx % 100 == 0 or pass_idx == n_passes - 1:
                 logger.debug(
@@ -363,6 +380,9 @@ def fit(
 
         for layer in source_layers:
             jacobian_sum[layer] += per_prompt_J[layer]
+        # Otherwise the previous prompt's matrices stay alive throughout the
+        # next forward/backward, adding len(source_layers) * d_model**2 * 4 bytes.
+        del per_prompt_J
         n_done += 1
         next_idx = prompt_idx + 1
 

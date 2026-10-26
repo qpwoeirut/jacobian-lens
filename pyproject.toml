@@ -23,8 +23,12 @@ dependencies = [
 Repository = "https://github.com/anthropics/jacobian-lens"
 Paper = "https://transformer-circuits.pub/2026/workspace/index.html"
 
+[project.scripts]
+corpus-experiment = "corpus_experiment.main:main"
+
 [project.optional-dependencies]
 dev = ["pytest", "ruff", "datasets"]
+experiment = ["datasets"]
 
 [tool.ruff]
 line-length = 88
@@ -35,7 +39,7 @@ select = ["E", "F", "W", "I", "B", "UP"]
 ignore = ["E501", "E741"]
 
 [tool.setuptools]
-packages = ["jlens"]
+packages = ["jlens", "corpus_experiment"]
 
 [tool.setuptools.package-data]
 jlens = ["data/*"]

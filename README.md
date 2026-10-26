@@ -1,105 +1,51 @@
 # jlens — Jacobian lens
 
-A fork of the reference implementation for the Jacobian lens, modified to test
+A fork of the [reference implementation](https://github.com/anthropics/jacobian-lens) for
+the [Jacobian lens](https://transformer-circuits.pub/2026/workspace/index.html), modified to test
 the sensitivity of the lens to the fitting corpus. **Currently a work in progress.**
 
-Companion code for [**Verbalizable Representations Form a Global Workspace in
-Language Models**](https://transformer-circuits.pub/2026/workspace/index.html).
+## Question
 
-The Jacobian lens reads out what an internal activation is disposed to make the
-model say. It linearly transports a residual-stream vector at any layer and
-position into the final-layer basis, then decodes it with the model's own
-unembedding into a ranked list of vocabulary tokens.
+How does the corpus used to fit a Jacobian lens affect the resulting lens? Qualitatively, are there differences in the
+readouts from different lenses?
 
-The transport is the average input–output Jacobian over a text corpus:
+## Process
 
-```
-lens_l(h) = unembed( J_l @ h ), J_l = E[∂h_final / ∂h_l]
-```
+All lenses will be fitted on 1000 prompts from the dataset.
 
-The expectation is over prompts, source positions, and all current-and-future
-target positions in a generic web-text corpus; the precise estimator
-(cotangents summed over target positions, then averaged over source positions)
-is documented in the [`jlens.fitting`](jlens/fitting.py) module docstring.
+- [x] Adapt code to work on my laptop (Apple Silicon Mac)
+- [ ] Run a proof-of-concept experiment locally with Qwen3.5-0.8B
+    - [ ] Fit multiple lenses using samples of the same dataset (wikitext-103-raw-v1). Create a baseline for sampling
+      variability.
+    - [ ] Pick other datasets and fit multiple lenses on each
+        * Refusals only
+        * Math (proofs)
+        * Non-English. Using Chinese would be interesting since Qwen and a lot of other open models already have Chinese
+          characters in their readouts
+        * ASCII art
+        * Encodings (e.g. base64)
+        * Poetry
+        * Gibberish
+        * Code that crashes (does this influence the "ValueError" and similar readouts?)
+    - [ ] Calculate Frobenius distance, cosine similarity, other matrix metrics
+    - [ ] Calculate top-k overlap, KL divergence between lenses
+    - [ ] Find qualitative examples of different readouts from the different lenses, if they exist
+        * Start by checking the provided [examples](/data/evaluations)
+        * Consider vibe-coding a UI for lens readouts, similar to Neuronpedia
+- [ ] Run a full experiment on a larger model using rented GPUs
 
-This repo fits the lens on open-weights decoder transformers, applies it, and
-renders the interactive layer × position view shown below. Examples use Qwen;
-other HuggingFace decoders adapt cleanly.
+## Why?
 
-![Slice visualisation: ASCII-face example](assets/slice_vis.png)
+If the J-lens is not robust to the fitting prompt distribution, more care will need to be taken when fitting the lens.
 
-*The ASCII-face example: selecting the `^` (nose) position shows the lens
-reading out "nose" at mid layers, although the word never appears in the
-prompt.*
+Also, I've been learning about mech interp and wanted to try some hands-on experimentation. :)
 
-## Install
+## Run the experiment
+
+From the repository root:
 
 ```bash
-pip install -e .
+uv run --extra experiment corpus-experiment
 ```
 
-## Usage
-
-### Apply
-
-To apply a pre-fitted lens:
-
-```python
-import transformers, jlens
-
-hf = transformers.AutoModelForCausalLM.from_pretrained("org/model").cuda()
-tok = transformers.AutoTokenizer.from_pretrained("org/model")
-model = jlens.from_hf(hf, tok)
-
-lens = jlens.JacobianLens.from_pretrained("org/lens-repo", filename="model/lens.pt")
-lens_logits, model_logits, _ = lens.apply(
-    model, "Fact: The currency used in the country shaped like a boot is",
-    positions=[-2])
-for layer, logits in sorted(lens_logits.items()):
-    print(layer, [tok.decode([t]) for t in logits[0].topk(5).indices])
-```
-
-### Fit
-
-To fit a lens on your own model:
-
-```python
-lens = jlens.fit(model, prompts=my_prompts, checkpoint_path="out/ckpt.pt")
-lens.save("out/jacobian_lens.pt")
-```
-
-The paper's lenses use 1000 sequences of 128 tokens from a pretraining-like
-corpus. Quality saturates quickly (§9.3); ~100 prompts is usable. This is a
-reference implementation and is not optimized; fitting time is dominated by
-the model's own backward pass. Parallelize by running `fit()` on disjoint
-slices and combining with `JacobianLens.merge()`.
-
-## Walkthrough
-
-[`walkthrough.ipynb`](walkthrough.ipynb) is the end-to-end notebook: load a
-model, load (or fit) a lens, apply it at a few layers, and render a slice page
-like the one above.
-
-Reading a slice page:
-
-- Each cell shows the lens top-1 word at that (position, layer); the
-  superscript is its rank over the full vocabulary.
-- Click a cell to select a (position, layer) and pin its top-1 token; pinned
-  tokens get rank-tracking charts and a rank heatmap.
-- The bottom row (`L = n_layers − 1`) is the model's actual output.
-
-## License and data
-
-Code is released under the Apache License 2.0 — see [LICENSE](LICENSE).
-
-The replication and lens-eval prompt sets in [`data/`](data/) are synthetic,
-authored by Anthropic, and released under the same Apache License 2.0 as the
-code. See the READMEs in [`data/experiments/`](data/experiments/) and
-[`data/evaluations/`](data/evaluations/) for what each set contains.
-
-The slice-vis pages use [d3](https://github.com/d3/d3) (ISC license), loaded
-from the jsDelivr CDN with subresource integrity or inlined into
-self-contained pages.
-
-No model weights or text corpora are bundled; models and datasets downloaded
-at run time are subject to their own licenses.
+Configure the model, dataset, and fitting settings in [corpus_experiment/main.py](corpus_experiment/main.py).

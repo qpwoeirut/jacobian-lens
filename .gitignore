@@ -11,6 +11,5 @@ dist/
 .idea
 
 # jlens outputs
-*.pt
 slice*.html
 slices/

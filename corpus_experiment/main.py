@@ -16,9 +16,9 @@ DATASET_PATH = "Salesforce/wikitext"
 DATASET_NAME = "wikitext-103-raw-v1"
 
 TRIALS = 5
-N_PROMPTS = 1000
-MIN_PROMPT_CHARS = 600
-MAX_SEQ_TOKENS = 128
+N_PROMPTS = 50  # For full run, use 1000
+MIN_PROMPT_CHARS = 300  # For full run, use 600
+MAX_SEQ_TOKENS = 64  # For full run, use 128
 
 
 def load_prompts(path: str, name: str, *, min_chars: int) -> list[str]:

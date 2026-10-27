@@ -11,10 +11,8 @@ readouts from different lenses?
 
 ## Process
 
-All lenses will be fitted on 1000 prompts from the dataset.
-
 - [x] Adapt code to work on my laptop (Apple Silicon Mac)
-- [ ] Run a proof-of-concept experiment locally with Qwen3.5-0.8B
+- [ ] Run a proof-of-concept experiment locally with Qwen3.5-0.8B and 100 prompts per lens
     - [ ] Fit multiple lenses using samples of the same dataset (wikitext-103-raw-v1). Create a baseline for sampling
       variability.
     - [ ] Pick other datasets and fit multiple lenses on each
@@ -32,7 +30,7 @@ All lenses will be fitted on 1000 prompts from the dataset.
     - [ ] Find qualitative examples of different readouts from the different lenses, if they exist
         * Start by checking the provided [examples](/data/evaluations)
         * Consider vibe-coding a UI for lens readouts, similar to Neuronpedia
-- [ ] Run a full experiment on a larger model using rented GPUs
+- [ ] Run a full experiment on a larger model using rented GPUs and 1000 prompts per lens
 
 ## Why?
 

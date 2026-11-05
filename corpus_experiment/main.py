@@ -2,12 +2,15 @@ import logging
 import os
 import random
 
+import itertools
 import torch
 import transformers
 from datasets import load_dataset
 
 import jlens
 from corpus_experiment import logs
+from corpus_experiment.compare import compare
+from jlens import JacobianLens
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +30,10 @@ def load_prompts(path: str, name: str, *, min_chars: int) -> list[str]:
     return [record["text"] for record in dataset if len(record["text"]) >= min_chars]
 
 
-def main():
-    logs.configure_logging()
-
+def fit_lenses() -> None:
     # Concurrent weight copy/cast operations can crash PyTorch's MPS shader cache.
     os.environ["HF_DEACTIVATE_ASYNC_LOAD"] = "1"
+
     prompts = load_prompts(DATASET_PATH, DATASET_NAME, min_chars=MIN_PROMPT_CHARS)
     logger.info("Loaded %d prompts", len(prompts))
 
@@ -62,6 +64,19 @@ def main():
 
     logger.info("Done")
 
+
+def main():
+    logs.configure_logging()
+
+    # fit_lenses()
+
+    pairs = []
+    lenses = [JacobianLens.from_pretrained(f"output/lens_Qwen3.5-0.8B_wikitext-103-raw-v1_{i}.pt")
+              for i in range(TRIALS)]
+    for lens_a, lens_b in itertools.combinations(lenses, r=2):
+        pairs.append(compare(lens_a, lens_b))
+
+    print(*pairs, sep='\n')
 
 if __name__ == '__main__':
     main()
